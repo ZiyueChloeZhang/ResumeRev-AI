@@ -1,22 +1,34 @@
 import streamlit as st
 import boto3
 from botocore.exceptions import NoCredentialsError
+import uuid
 
 st.title('ResumeRev')
 st.subheader('The :blue[AI]-Powered Career Architect')
 
 col1, col2 = st.columns(2, gap="large")
 
-def upload_job_posting_and_resume_to_s3(resume):
+
+def upload_job_posting_and_resume_to_s3(job_posting, resume):
     # Initialize a boto3 client
     s3 = boto3.client('s3')
-
-    # Define the S3 key names for the job posting and resume
-    resume_key = f'resumes/{resume.name}'
     bucket_name = 'resume-team-2'
 
+    # Define the S3 key names for the job posting and resume
+    session_id = str(uuid.uuid4())
+
+    job_posting_key = f'{session_id}/job_posting.txt'
+    resume_key = f'{session_id}/{resume.name}'
+
     try:
+        # Upload the job posting
+        # Convert the job posting string to bytes and upload it as a text file
+        s3.put_object(Body=job_posting.encode(), Bucket=bucket_name, Key=job_posting_key)
+
+        # Upload the resume
+        # Use the 'UploadedFile' object's 'getbuffer()' method to read the file content
         s3.upload_fileobj(resume, bucket_name, resume_key)
+
         print(f"Job posting and resume uploaded successfully to bucket '{bucket_name}'")
     except NoCredentialsError:
         print("Error: AWS credentials not found.")
@@ -37,7 +49,7 @@ with col1:
         st.success(resume.name + ' Selected')
         if st.button('Start Tailoring', type="primary"):
             with st.spinner('Uploading...'):
-                upload_job_posting_and_resume_to_s3(resume)
+                upload_job_posting_and_resume_to_s3(job_posting, resume)
 
 
 with col2:
