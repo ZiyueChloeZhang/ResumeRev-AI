@@ -1,12 +1,70 @@
+import os
+
 import streamlit as st
 import boto3
 from botocore.exceptions import NoCredentialsError
 import uuid
 
+from langchain.chains import ConversationalRetrievalChain
+from langchain.document_loaders import PyPDFLoader
+from langchain.indexes import VectorstoreIndexCreator
+from langchain.llms.bedrock import Bedrock
+from langchain.embeddings import BedrockEmbeddings
+from langchain.vectorstores import FAISS
+import tempfile
+
 st.title('ResumeRev')
 st.subheader('The :blue[AI]-Powered Career Architect')
 
 col1, col2 = st.columns(2, gap="large")
+
+
+def embed_and_response(path_to_resume):
+    print('ho')
+    # Load the PDF
+    loader = PyPDFLoader(path_to_resume)
+
+    # Initialize Bedrock client
+    bedrock_runtime = boto3.client(
+        service_name="bedrock-runtime",
+        region_name="us-west-2",
+    )
+
+    embeddings, llm = BedrockEmbeddings(
+        model_id="amazon.titan-embed-text-v1",
+        client=bedrock_runtime,
+        region_name="us-west-2",
+    ), Bedrock(
+        model_id="anthropic.claude-v2", client=bedrock_runtime, region_name="us-west-2"
+    )
+
+    # Create index from the PDF
+    index_creator = VectorstoreIndexCreator(
+        vectorstore_cls=FAISS,
+        embedding=embeddings,
+    )
+
+    current_dir = os.getcwd()
+    print(current_dir)
+
+    index_from_loader = index_creator.from_loaders([loader])
+    index_from_loader.vectorstore.save_local("/tmp")
+
+    print(index_from_loader.vectorstore)
+
+    # faiss_index = FAISS.load_local("/tmp/faiss.index", embeddings)
+    #
+    # print(f"Faiss_index {faiss_index} ")
+    #
+    # qa = ConversationalRetrievalChain.from_llm(
+    #     llm=llm,
+    #     retriever=faiss_index.as_retriever(),
+    #     return_source_documents=True,
+    # )
+    #
+    # res = qa({"question": "say the content of the file"})
+    #
+    # print(res)
 
 
 def upload_job_posting_and_resume_to_s3(job_posting, resume):
@@ -18,7 +76,7 @@ def upload_job_posting_and_resume_to_s3(job_posting, resume):
     session_id = str(uuid.uuid4())
 
     job_posting_key = f'{session_id}/job_posting.txt'
-    resume_key = f'{session_id}/{resume.name}'
+    resume_key = f'{session_id}/resume.pdf'
 
     try:
         # Upload the job posting
@@ -49,7 +107,14 @@ with col1:
         st.success(resume.name + ' Selected')
         if st.button('Start Tailoring', type="primary"):
             with st.spinner('Uploading...'):
-                upload_job_posting_and_resume_to_s3(job_posting, resume)
+                print('helllooooo')
+                temp_dir = tempfile.mkdtemp()
+                path = os.path.join(temp_dir, resume.name)
+                with open(path, "wb") as f:
+                    f.write(resume.getvalue())
+                print(path)
+                embed_and_response(path)
+
 
 
 with col2:
