@@ -1,28 +1,44 @@
 import streamlit as st
+import boto3
+from botocore.exceptions import NoCredentialsError
 
 st.title('ResumeRev')
 st.subheader('The :blue[AI]-Powered Career Architect')
 
-
 col1, col2 = st.columns(2, gap="large")
+
+def upload_job_posting_and_resume_to_s3(resume):
+    # Initialize a boto3 client
+    s3 = boto3.client('s3')
+
+    # Define the S3 key names for the job posting and resume
+    resume_key = f'resumes/{resume.name}'
+    bucket_name = 'resume-team-2'
+
+    try:
+        s3.upload_fileobj(resume, bucket_name, resume_key)
+        print(f"Job posting and resume uploaded successfully to bucket '{bucket_name}'")
+    except NoCredentialsError:
+        print("Error: AWS credentials not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 
 with col1:
     st.subheader('Job Posting', divider=True)
-    txt = st.text_area(
+    job_posting = st.text_area(
         "Copy and paste a job posting here",
         "",
         )
 
-    st.write(f'You wrote {len(txt)} characters.')
-
     st.subheader('Resume', divider=True)
-    uploaded_files = st.file_uploader("Choose a PDF file", accept_multiple_files=True)
-    for uploaded_file in uploaded_files:
-        bytes_data = uploaded_file.read()
-        st.write("filename:", uploaded_file.name)
-        st.write(bytes_data)
+    resume = st.file_uploader("Choose a PDF file", type=['pdf'])
+    if resume is not None:
+        st.success(resume.name + ' Selected')
+        if st.button('Start Tailoring', type="primary"):
+            with st.spinner('Uploading...'):
+                upload_job_posting_and_resume_to_s3(resume)
 
-    st.button("Start Tailoring", type="primary")
 
 with col2:
     st.subheader('Your tailored Resume', divider=True)
@@ -54,4 +70,3 @@ with col2:
             st.markdown(prompt)
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
-
