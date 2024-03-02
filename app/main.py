@@ -22,6 +22,8 @@ with col1:
         st.write("filename:", uploaded_file.name)
         st.write(bytes_data)
 
+    st.button("Start Tailoring", type="primary")
+
 with col2:
     st.subheader('Your tailored Resume', divider=True)
     # with open("flower.png", "rb") as file:
