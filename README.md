@@ -27,6 +27,10 @@ Serverless Resume PDF Suggestion architecture
 1. When a user chats with a Rseume PDF document and sends a prompt to the backend, a function retrieves the index and searches for information related to the prompt.
 1. A LLM then uses the results of this vector search, previous messages in the conversation, and its general-purpose capabilities to formulate a response to the user.
 
+## Future Development
+1. support job posting and resume uploading for resume tailoring.
+2. cover letter generation.
+
 ## Deployment instructions
 
 ### Prerequisites
