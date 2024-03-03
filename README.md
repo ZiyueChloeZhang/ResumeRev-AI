@@ -4,7 +4,7 @@ UBC CIC genAI Hackathon 2024
 This sample application allows you to ask natural language questions of the resume PDF document you upload. It combines the text generation and analysis capabilities of an LLM with a vector search of the document content. The solution uses serverless services [Amazon Bedrock](https://aws.amazon.com/bedrock/) to access foundational models, and [Streamlit UI](https://streamlit.io/)
 
 <p float="left">
-  
+  <img width="831" alt="Screen_Shot_2024-03-02_at_5 26 21_PM" src="https://github.com/ZiyueChloeZhang/ResumeRev-AI/assets/41217816/312ac4e0-45b9-4295-840e-a277be27cd9b">
 </p>
 
 > **Note**
