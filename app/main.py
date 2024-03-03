@@ -50,49 +50,24 @@ def embed_and_response(path_to_resume):
     index_from_loader = index_creator.from_loaders([loader])
     index_from_loader.vectorstore.save_local("/tmp")
 
-    print(index_from_loader.vectorstore)
+    faiss_index = FAISS.load_local("/tmp", embeddings)
 
-    # faiss_index = FAISS.load_local("/tmp/faiss.index", embeddings)
-    #
-    # print(f"Faiss_index {faiss_index} ")
-    #
-    # qa = ConversationalRetrievalChain.from_llm(
-    #     llm=llm,
-    #     retriever=faiss_index.as_retriever(),
-    #     return_source_documents=True,
-    # )
-    #
-    # res = qa({"question": "say the content of the file"})
-    #
-    # print(res)
+    print(f"Faiss_index {faiss_index} ")
 
+    retriever = faiss_index.as_retriever()
 
-def upload_job_posting_and_resume_to_s3(job_posting, resume):
-    # Initialize a boto3 client
-    s3 = boto3.client('s3')
-    bucket_name = 'resume-team-2'
+    chat_history = []
+    query = "This is my resume. Give me some advice."
 
-    # Define the S3 key names for the job posting and resume
-    session_id = str(uuid.uuid4())
+    chain = ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=retriever
+    )
 
-    job_posting_key = f'{session_id}/job_posting.txt'
-    resume_key = f'{session_id}/resume.pdf'
+    result = chain({"question": query, "chat_history": chat_history})
+    chat_history.append((query, result["answer"]))
 
-    try:
-        # Upload the job posting
-        # Convert the job posting string to bytes and upload it as a text file
-        s3.put_object(Body=job_posting.encode(), Bucket=bucket_name, Key=job_posting_key)
-
-        # Upload the resume
-        # Use the 'UploadedFile' object's 'getbuffer()' method to read the file content
-        s3.upload_fileobj(resume, bucket_name, resume_key)
-
-        print(f"Job posting and resume uploaded successfully to bucket '{bucket_name}'")
-    except NoCredentialsError:
-        print("Error: AWS credentials not found.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
+    print(chat_history)
 
 with col1:
     st.subheader('Job Posting', divider=True)
