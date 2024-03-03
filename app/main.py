@@ -2,9 +2,6 @@ import os
 
 import streamlit as st
 import boto3
-from botocore.exceptions import NoCredentialsError
-import uuid
-
 from langchain.chains import ConversationalRetrievalChain
 from langchain.document_loaders import PyPDFLoader
 from langchain.indexes import VectorstoreIndexCreator
@@ -13,14 +10,37 @@ from langchain.embeddings import BedrockEmbeddings
 from langchain.vectorstores import FAISS
 import tempfile
 
+query = """You will serve as an AI career coach, aiming to provide 
+insightful responses to the questions asked. Your objective 
+is to deliver helpful answers in character of AI career coach, 
+assisting users with their inquiries and refining their resume 
+details.
+
+You should maintain a friendly customer service tone.
+
+The resume information that users uploaded is listed between 
+the <data> XML like tags. You should reference when answering 
+the users questions {{user_input}}
+
+
+Here are some important rules for the interaction:
+
+Always stay in character, as AI career coach.
+If you are unsure how to repond, say 'Sorry, I didn't understand that. 
+Could you ask the question with more detailed information?''
+If someone asks something irrelevant, say,  'Sorry, I only give resume 
+related advice. Do you have a career question today I can help you with?'
+Ensure responses are within 50 words by default. If users desire more 
+information, increase the word count by 50 words with each request."""
+
 st.title('ResumeRev')
 st.subheader('The :blue[AI]-Powered Career Architect')
 
 col1, col2 = st.columns(2, gap="large")
+def initialize_chain(path_to_resume):
+    if "chain" in st.session_state:
+        del st.session_state["chain"]
 
-
-def embed_and_response(path_to_resume):
-    print('ho')
     # Load the PDF
     loader = PyPDFLoader(path_to_resume)
 
@@ -45,80 +65,76 @@ def embed_and_response(path_to_resume):
     )
 
     current_dir = os.getcwd()
-    print(current_dir)
 
     index_from_loader = index_creator.from_loaders([loader])
     index_from_loader.vectorstore.save_local("/tmp")
-
     faiss_index = FAISS.load_local("/tmp", embeddings)
 
-    print(f"Faiss_index {faiss_index} ")
-
     retriever = faiss_index.as_retriever()
-
-    chat_history = []
-    query = "This is my resume. Give me some advice."
-
     chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever
     )
 
-    result = chain({"question": query, "chat_history": chat_history})
-    chat_history.append((query, result["answer"]))
+    chain({
+        "question": query,
+        "chat_history": []
+    })
 
-    print(chat_history)
+    st.session_state['chain'] = chain
 
 with col1:
-    st.subheader('Job Posting', divider=True)
-    job_posting = st.text_area(
-        "Copy and paste a job posting here",
-        "",
-        )
-
     st.subheader('Resume', divider=True)
     resume = st.file_uploader("Choose a PDF file", type=['pdf'])
     if resume is not None:
         st.success(resume.name + ' Selected')
-        if st.button('Start Tailoring', type="primary"):
-            with st.spinner('Uploading...'):
-                print('helllooooo')
-                temp_dir = tempfile.mkdtemp()
-                path = os.path.join(temp_dir, resume.name)
-                with open(path, "wb") as f:
-                    f.write(resume.getvalue())
-                print(path)
-                embed_and_response(path)
-
-
+        if st.button('Submit', type="primary"):
+            temp_dir = tempfile.mkdtemp()
+            path = os.path.join(temp_dir, resume.name)
+            with open(path, "wb") as f:
+                f.write(resume.getvalue())
+            initialize_chain(path)
 
 with col2:
-    st.subheader('Your tailored Resume', divider=True)
-    # with open("flower.png", "rb") as file:
-    #     btn = st.download_button(
-    #         label="Download image",
-    #         data=file,
-    #         file_name="flower.png",
-    #         mime="image/png"
-    #     )
-    text_contents = '''This is some text'''
-    st.download_button('Download Resume', text_contents)
-
-    # Chatbot
     st.subheader("AI Consultant", divider=True)
-    # Initialize chat history
+
+    # Initialize messages list in session state if not present
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Display chat messages from history on app rerun
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
-    # Accept user input
-    if prompt := st.chat_input("What is up?"):
-        # Display user message in chat message container
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    # Accept new user input and process it
+    if 'chain' in st.session_state:
+        prompt = st.chat_input("Ask me something about the resume")
+        if prompt is not None:
+            # Append user question to messages
+            st.session_state.messages.append({"role": "user", "content": prompt})
+
+            # Display user question
+            # with st.chat_message("user"):
+            #     st.markdown(prompt)
+
+            # Generate AI response using 'chain'
+            result = st.session_state['chain']({
+                "question": prompt,
+                "chat_history": st.session_state.chat_history
+            })
+            ai_response = result["answer"]
+
+            # Display AI response and append it to messages
+            # with st.chat_message("assistant"):
+            #     st.markdown(ai_response)
+
+            st.session_state.messages.append({"role": "assistant", "content": ai_response})
+            st.session_state.chat_history.append((prompt, ai_response))
+    else:
+        st.write("Please upload a resume to start the consultation.")
+
+    with st.container(height=400):
+        # Display existing chat messages
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
