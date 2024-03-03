@@ -1,0 +1,7 @@
+boto3
+botocore
+faiss-cpu
+langchain
+pypdf
+urllib3
+aws_lambda_powertools
